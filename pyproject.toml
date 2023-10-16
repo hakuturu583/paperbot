@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "paperbot"
+version = "0.1.0"
+description = "slack bot for reading papers"
+authors = ["Masaya Kataoka"]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+langchain = "^0.0.312"
+slack-bolt = "^1.18.0"
+pypdf = "^3.16.4"
+black = "^23.9.1"
+logging = "^0.4.9.6"
+spacy = "3.7.1"
+en_core_web_lg = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.0/en_core_web_lg-3.7.0.tar.gz"}
+dataclass-wizard = "^0.22.2"
+qdrant-client = "^1.6.0"
+openai = "^0.28.1"
+tiktoken = "^0.5.1"
+langdetect = "^1.0.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
