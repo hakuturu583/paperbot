@@ -20,6 +20,8 @@ qdrant-client = "^1.6.0"
 openai = "^0.28.1"
 tiktoken = "^0.5.1"
 langdetect = "^1.0.9"
+sumy = "^0.11.0"
+nltk = "^3.8.1"
 
 [build-system]
 requires = ["poetry-core"]

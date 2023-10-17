@@ -1,5 +1,9 @@
+from paperbot.datatype import MetaData
+
 from langchain.chains import RetrievalQA
-from langchain.document_loaders import PyPDFLoader
+from langchain.chains.summarize import load_summarize_chain
+from langchain.chat_models import ChatOpenAI
+from langchain.document_loaders import PyPDFLoader, TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 from langchain.output_parsers import PydanticOutputParser
@@ -7,11 +11,29 @@ from langchain.prompts import PromptTemplate
 from langchain.schema.document import Document
 from langchain.text_splitter import SpacyTextSplitter, RecursiveCharacterTextSplitter
 from langchain.vectorstores import Qdrant
-from paperbot.datatype import MetaData
+
 from pathlib import Path
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
+
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.parsers.plaintext import PlaintextParser
+
+# from sumy.summarizers.lsa import LsaSummarizer as Summarizer
+# from sumy.summarizers.luhn import LuhnSummarizer as Summarizer
+# from sumy.summarizers.reduction import ReductionSummarizer as Summarizer
+from sumy.summarizers.lex_rank import LexRankSummarizer as Summarizer
+
+from sumy.nlp.stemmers import Stemmer
+from sumy.utils import get_stop_words
+
+import spacy
+
+import nltk
+
 from typing import List, Optional
+import langdetect
 import logging
 import os
 
@@ -50,10 +72,25 @@ class PaperBot:
             ).split_documents(loader.load_and_split())
         )
 
+    def load_string(self, text: str, chunk_size: int = 256) -> List[Document]:
+        return RecursiveCharacterTextSplitter(chunk_size=chunk_size).split_documents(
+            SpacyTextSplitter(
+                chunk_size=chunk_size, pipeline="en_core_web_lg", separator=""
+            ).split_documents(
+                [Document(page_content=text, metadata={"source": "local"})]
+            )
+        )
+
     def convert_to_text_list(self, sentences: List[Document]) -> List[str]:
         ret: List[str] = []
         for sentence in sentences:
             ret.append(sentence.page_content)
+        return ret
+
+    def concat_sentences(self, sentences: List[Document]) -> str:
+        ret: str = ""
+        for sentence in sentences:
+            ret = ret + sentence.page_content
         return ret
 
     def query_metadata(self, sentences: List[Document]) -> Optional[MetaData]:
@@ -76,7 +113,42 @@ class PaperBot:
         except:
             return None
 
+    def summary_by_sumy(
+        self, sentences: List[Document], summary_sentences_count: int = 3
+    ) -> str:
+        language = "english"
+        nltk.download("punkt")
+        parser = PlaintextParser.from_string(
+            self.concat_sentences(sentences), Tokenizer(language)
+        )
+        stemmer = Stemmer("english")
+        summarizer = Summarizer(stemmer)
+        summarizer.stop_words = get_stop_words(language)
+        summary: str = ""
+        for sentence in summarizer(parser.document, summary_sentences_count):
+            summary = summary + sentence.__str__()
+        return summary
+
+    def summary(self, sentences: List[Document]):
+        chain = load_summarize_chain(
+            ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-16k"),
+            chain_type="stuff",
+        )
+        return chain.run(sentences)
+
+    def summary_pdf(self, pdf_path: Path, chunk_size: int = 256):
+        return self.summary(
+            self.load_string(self.summary_by_sumy(self.load_pdf(pdf_path, chunk_size)))
+        )
+
     def answer(self, sentences: List[Document], question: str):
+        lang = langdetect.detect(question)
+        if lang == "ja":
+            question = question + "回答は日本語でお願いします。"
+        elif lang == "en":
+            question = question + "Please ask in Englist."
+        else:
+            return "Unsupported language detected, did you ask in " + lang + "?"
         client = QdrantClient(
             url=os.environ["QDRANT_URI"],
             api_key=os.environ["QDRANT_API_KEY"],
@@ -133,4 +205,5 @@ class PaperBot:
 if __name__ == "__main__":
     bot = PaperBot()
     # bot.construct_vector_database(bot.load_pdf("2309.17080.pdf"))
-    print(bot.answer(bot.load_pdf("2309.17080.pdf"), "この論文ではどのように拡散モデルが利用されていますか？回答は日本語でお願いします。"))
+    # print(bot.answer(bot.load_pdf("2309.17080.pdf"), "この論文ではどのように拡散モデルが利用されていますか？"))
+    print(bot.summary_pdf("2309.17080.pdf"))
