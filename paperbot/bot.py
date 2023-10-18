@@ -182,10 +182,6 @@ class PaperBot:
             return_source_documents=False,
             verbose=True,
         )
-        print(
-            "Summary : "
-            + self.summary(self.load_string(self.summary_by_sumy(sentences)))
-        )
         return model.run(question)
 
     def load_qdrant(self, sentences: List[Document], update_embedding: bool = False):

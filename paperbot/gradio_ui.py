@@ -20,7 +20,6 @@ class GradioUi:
         return history
 
     def bot(self, history):
-        print(self.paper_bot.detect_language(history[-1][0]))
         user_action = self.paper_bot.interpret_action(history[-1][0])
         response = ""
         history[-1][1] = ""
@@ -35,7 +34,7 @@ class GradioUi:
                 self.paper_bot.detect_language(history[-1][0]),
             )
         elif user_action == UserAction.ANSWER_QUESTION_FROM_PAPER:
-            response = "Try answering question"
+            response = self.paper_bot.answer(self.sentences, history[-1][0])
         else:
             response = "Sorry, I could not understand your request."
         for character in response:
@@ -53,7 +52,7 @@ with gr.Blocks() as demo:
         elem_id="chatbot",
         bubble_full_width=False,
         avatar_images=(None, (os.path.join(os.path.dirname(__file__), "avatar.jpeg"))),
-        height = 600,
+        height=600,
     )
 
     with gr.Row():
