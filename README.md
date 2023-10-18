@@ -39,9 +39,9 @@ export OPENAI_API_KEY={API_KEY_OF_OPENAI}
 ```
 
 # Roadmap
-[x] Summary paper.  
-[x] Answer question about paper.  
-[x] Japanese support.  
-[x] Gradio integration.  
-[ ] Slack integration.  
-[ ] Find paper with arxiv API.  
+- [x] Summary paper.  
+- [x] Answer question about paper.  
+- [x] Japanese support.  
+- [x] Gradio integration.  
+- [ ] Slack integration.  
+- [ ] Find paper with arxiv API.  
