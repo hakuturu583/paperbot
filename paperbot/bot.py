@@ -219,15 +219,12 @@ class PaperBot:
             },
         )
         llm = OpenAI(temperature=0)
-        return output_parser.parse(
-            llm(prompt.format_prompt(question=question).to_string())
-        )
-        # try:
-        #     return output_parser.parse(
-        #         llm(prompt.format_prompt(question=question).to_string())
-        #     )
-        # except:
-        #     return None
+        try:
+            return output_parser.parse(
+                llm(prompt.format_prompt(question=question).to_string())
+            )
+        except:
+            return None
 
 
 if __name__ == "__main__":
