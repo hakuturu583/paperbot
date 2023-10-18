@@ -1,4 +1,4 @@
-from paperbot.datatype import MetaData
+from paperbot.datatype import MetaData, UserAction
 
 from langchain.chains import RetrievalQA
 from langchain.chains.summarize import load_summarize_chain
@@ -7,6 +7,7 @@ from langchain.document_loaders import PyPDFLoader, TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
 from langchain.output_parsers import PydanticOutputParser
+from langchain.output_parsers.enum import EnumOutputParser
 from langchain.prompts import PromptTemplate
 from langchain.schema.document import Document
 from langchain.text_splitter import SpacyTextSplitter, RecursiveCharacterTextSplitter
@@ -161,7 +162,10 @@ class PaperBot:
             return_source_documents=False,
             verbose=True,
         )
-        print("Summary : " + self.summary(self.load_string(self.summary_by_sumy(sentences)))) 
+        print(
+            "Summary : "
+            + self.summary(self.load_string(self.summary_by_sumy(sentences)))
+        )
         return model.run(question)
 
     def load_qdrant(self, sentences: List[Document], update_embedding: bool = False):
@@ -205,8 +209,31 @@ class PaperBot:
             embeddings=OpenAIEmbeddings(),
         )
 
+    def interpret_action(self, question: str):
+        output_parser = EnumOutputParser(enum=UserAction)
+        prompt = PromptTemplate(
+            template="User request is {question}. \nPlease choose which action is suitable from user request.\n{format_instructions}\n",
+            input_variables=["question"],
+            partial_variables={
+                "format_instructions": output_parser.get_format_instructions()
+            },
+        )
+        llm = OpenAI(temperature=0)
+        return output_parser.parse(
+            llm(prompt.format_prompt(question=question).to_string())
+        )
+        # try:
+        #     return output_parser.parse(
+        #         llm(prompt.format_prompt(question=question).to_string())
+        #     )
+        # except:
+        #     return None
+
 
 if __name__ == "__main__":
     bot = PaperBot()
     # print(bot.answer(bot.load_pdf("2309.17080.pdf"), "この論文ではどのように拡散モデルが利用されていますか？"))
-    print(bot.answer(bot.load_pdf("2309.17080.pdf"), "Please summary this paper.", False))
+    # print(
+    #     bot.answer(bot.load_pdf("2309.17080.pdf"), "Please summary this paper.", False)
+    # )
+    print(bot.interpret_action("Please summary this paper."))
