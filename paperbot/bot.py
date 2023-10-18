@@ -129,19 +129,16 @@ class PaperBot:
             summary = summary + sentence.__str__()
         return summary
 
-    def summary(self, sentences: List[Document]):
+    def summary(self, sentences: List[Document]) -> str:
         chain = load_summarize_chain(
             ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-16k"),
             chain_type="stuff",
         )
         return chain.run(sentences)
 
-    def summary_pdf(self, pdf_path: Path, chunk_size: int = 256):
-        return self.summary(
-            self.load_string(self.summary_by_sumy(self.load_pdf(pdf_path, chunk_size)))
-        )
-
-    def answer(self, sentences: List[Document], question: str):
+    def answer(
+        self, sentences: List[Document], question: str, update_embedding: bool = False
+    ):
         lang = langdetect.detect(question)
         if lang == "ja":
             question = question + "回答は日本語でお願いします。"
@@ -153,20 +150,21 @@ class PaperBot:
             url=os.environ["QDRANT_URI"],
             api_key=os.environ["QDRANT_API_KEY"],
         )
-        qdrant = self.load_qdrant(sentences)
+        qdrant = self.load_qdrant(sentences, update_embedding)
         model = RetrievalQA.from_chain_type(
             llm=OpenAI(temperature=0),
             chain_type="stuff",
             retriever=qdrant.as_retriever(
                 search_type="similarity",
-                search_kwargs={"k": 10},
+                search_kwargs={"k": 5},
             ),
             return_source_documents=False,
             verbose=True,
         )
+        print("Summary : " + self.summary(self.load_string(self.summary_by_sumy(sentences)))) 
         return model.run(question)
 
-    def load_qdrant(self, sentences: List[Document]):
+    def load_qdrant(self, sentences: List[Document], update_embedding: bool = False):
         client = QdrantClient(
             url=os.environ["QDRANT_URI"],
             api_key=os.environ["QDRANT_API_KEY"],
@@ -175,7 +173,13 @@ class PaperBot:
         collection_names = [collection.name for collection in collections]
         metadata = self.query_metadata(sentences)
         collection_name = metadata.title.replace(" ", "_").replace(":", ",")
-        if collection_name not in collection_names:
+        if collection_name not in collection_names or update_embedding:
+            if collection_name in collection_names:
+                client.delete_collection(collection_name)
+            summary_text = (
+                "The summary of the paper is below. If you ask the summary of this paper, please use sentences below."
+                + self.summary(self.load_string(self.summary_by_sumy(sentences)))
+            )
             client.create_collection(
                 collection_name=collection_name,
                 vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
@@ -183,7 +187,7 @@ class PaperBot:
             if metadata != None:
                 embeddings = OpenAIEmbeddings()
                 db = Qdrant.from_documents(
-                    sentences,
+                    sentences + self.load_string(summary_text),
                     embeddings,
                     url=os.environ["QDRANT_URI"],
                     api_key=os.environ["QDRANT_API_KEY"],
@@ -204,6 +208,5 @@ class PaperBot:
 
 if __name__ == "__main__":
     bot = PaperBot()
-    # bot.construct_vector_database(bot.load_pdf("2309.17080.pdf"))
     # print(bot.answer(bot.load_pdf("2309.17080.pdf"), "この論文ではどのように拡散モデルが利用されていますか？"))
-    print(bot.summary_pdf("2309.17080.pdf"))
+    print(bot.answer(bot.load_pdf("2309.17080.pdf"), "Please summary this paper.", False))
