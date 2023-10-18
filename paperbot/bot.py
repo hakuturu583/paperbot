@@ -1,6 +1,8 @@
-from paperbot.datatype import MetaData, UserAction
+from paperbot.datatype import MetaData, UserAction, Language
 
 from langchain.chains import RetrievalQA
+from langchain.chains.combine_documents.stuff import StuffDocumentsChain
+from langchain.chains.llm import LLMChain
 from langchain.chains.summarize import load_summarize_chain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import PyPDFLoader, TextLoader
@@ -82,6 +84,15 @@ class PaperBot:
             )
         )
 
+    def detect_language(self, text: str):
+        lang = langdetect.detect(text)
+        if lang == "ja":
+            return Language.JAPANESE
+        elif lang == "en":
+            return Language.ENGLISH
+        else:
+            return None
+
     def convert_to_text_list(self, sentences: List[Document]) -> List[str]:
         ret: List[str] = []
         for sentence in sentences:
@@ -130,12 +141,21 @@ class PaperBot:
             summary = summary + sentence.__str__()
         return summary
 
-    def summary(self, sentences: List[Document]) -> str:
-        chain = load_summarize_chain(
-            ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-16k"),
-            chain_type="stuff",
+    def summary(self, sentences: List[Document], language: Language) -> str:
+        prompt_template = ""
+        if language == Language.ENGLISH:
+            prompt_template = (
+                "Write a concise summary of the following in English :{text}"
+            )
+        elif language == Language.JAPANESE:
+            prompt_template = "以下の英文の詳細な要約を日本語で行ってください :{text}"
+        prompt = PromptTemplate.from_template(prompt_template)
+        llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-16k")
+        llm_chain = LLMChain(llm=llm, prompt=prompt)
+        stuff_chain = StuffDocumentsChain(
+            llm_chain=llm_chain, document_variable_name="text"
         )
-        return chain.run(sentences)
+        return stuff_chain.run(sentences)
 
     def answer(
         self, sentences: List[Document], question: str, update_embedding: bool = False

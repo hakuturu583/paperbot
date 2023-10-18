@@ -5,49 +5,47 @@ from paperbot.bot import PaperBot
 from paperbot.datatype import UserAction
 
 
-paper_bot = PaperBot()
+class GradioUi:
+    def __init__(self):
+        self.paper_bot = PaperBot()
+        self.sentences = []
+
+    def add_text(self, history, text):
+        history = history + [(text, None)]
+        return history, gr.Textbox(value="", interactive=False)
+
+    def add_file(self, history, file):
+        history = history + [("要約して", "pdfを読み込んでいるよ")]
+        self.sentences = self.paper_bot.load_pdf(file.name)
+        return history
+
+    def bot(self, history):
+        print(self.paper_bot.detect_language(history[-1][0]))
+        user_action = self.paper_bot.interpret_action(history[-1][0])
+        response = ""
+        history[-1][1] = ""
+        if user_action == None:
+            # response = "Sorry, I could not understand your request."
+            response = "ごめんね、何をすればいいかわからなかったよ"
+        elif user_action == UserAction.SUMMARY_PAPER:
+            response = self.paper_bot.summary(
+                self.paper_bot.load_string(
+                    self.paper_bot.summary_by_sumy(self.sentences)
+                ),
+                self.paper_bot.detect_language(history[-1][0]),
+            )
+        elif user_action == UserAction.ANSWER_QUESTION_FROM_PAPER:
+            response = "Try answering question"
+        else:
+            response = "Sorry, I could not understand your request."
+        for character in response:
+            history[-1][1] += character
+            time.sleep(0.01)
+            yield history
 
 
-def add_text(history, text):
-    history = history + [(text, None)]
-    return history, gr.Textbox(value="", interactive=False)
+ui = GradioUi()
 
-
-def add_file(history, file):
-    history = history + [((file.name,), None)]
-    return history
-
-
-def bot(history):
-    user_action = paper_bot.interpret_action(history[-1][0])
-    response = ""
-    history[-1][1] = ""
-    if user_action == None:
-        response = "Sorry, I could not understand your request."
-    elif user_action == UserAction.SUMMARY_PAPER:
-        response = "Summary paper!"
-    elif user_action == UserAction.ANSWER_QUESTION_FROM_PAPER:
-        response = "Try answering question"
-    else:
-        response = "Sorry, I could not understand your request."
-    for character in response:
-        history[-1][1] += character
-        time.sleep(0.05)
-        yield history
-
-
-# def bot(history):
-#     print(history[-1][0])
-#     history[-1][1] = "fuga"
-# user_action = paper_bot.interpret_action(history[-1][0])
-# if user_action == None:
-#     history[-1][1] = "Sorry, I could not understand your request."
-# elif user_action == UserAction.SUMMARY_PAPER:
-#     history[-1][1] = "Summary paper!"
-# elif user_action == UserAction.ANSWER_QUESTION_FROM_PAPER:
-#     history[-1][1] = "Try answering question"
-# else:
-#     history[-1][1] = "Sorry, I could not understand your request."
 
 with gr.Blocks() as demo:
     chatbot = gr.Chatbot(
@@ -66,12 +64,12 @@ with gr.Blocks() as demo:
         )
         btn = gr.UploadButton("📁", file_types=["pdf"])
 
-    txt_msg = txt.submit(add_text, [chatbot, txt], [chatbot, txt], queue=False).then(
-        bot, chatbot, chatbot
+    txt_msg = txt.submit(ui.add_text, [chatbot, txt], [chatbot, txt], queue=False).then(
+        ui.bot, chatbot, chatbot
     )
     txt_msg.then(lambda: gr.Textbox(interactive=True), None, [txt], queue=False)
-    file_msg = btn.upload(add_file, [chatbot, btn], [chatbot], queue=False).then(
-        bot, chatbot, chatbot
+    file_msg = btn.upload(ui.add_file, [chatbot, btn], [chatbot], queue=False).then(
+        ui.bot, chatbot, chatbot
     )
 
 demo.queue()

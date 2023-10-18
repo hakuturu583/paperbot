@@ -13,3 +13,8 @@ class MetaData(BaseModel):
 class UserAction(Enum):
     SUMMARY_PAPER = "Summary paper"
     ANSWER_QUESTION_FROM_PAPER = "Answer question from paper"
+
+
+class Language(Enum):
+    ENGLISH = "english"
+    JAPANESE = "japanese"
