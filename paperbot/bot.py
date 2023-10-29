@@ -198,7 +198,9 @@ class PaperBot:
                 client.delete_collection(collection_name)
             summary_text = (
                 "The summary of the paper is below. If you ask the summary of this paper, please use sentences below."
-                + self.summary(self.load_string(self.summary_by_sumy(sentences)))
+                + self.summary(
+                    self.load_string(self.summary_by_sumy(sentences)), Language.ENGLISH
+                )
             )
             client.create_collection(
                 collection_name=collection_name,

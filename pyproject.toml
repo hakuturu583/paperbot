@@ -23,6 +23,7 @@ langdetect = "^1.0.9"
 sumy = "^0.11.0"
 nltk = "^3.8.1"
 gradio = "^3.49.0"
+psycopg2-binary = "^2.9.9"
 
 [build-system]
 requires = ["poetry-core"]
